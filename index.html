@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Optimizador TSP • Aceleración WebGPU</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <!-- TOP NAVBAR SLIM -->
+  <header class="navbar">
+    <div class="brand">
+        <h1>Optimizador de Rutas TSP</h1>
+      </div>
+    </div>
+
+    <div class="author-tag">
+      <span>Luis Carlos Marquez Strociak</span>
+    </div>
+    <div class="author-tag">
+      <span>Nro Control: 23200286</span>
+    </div>
+  </header>
+
+  <!-- MAIN DASHBOARD -->
+  <main class="dashboard-container">
+    <!-- LEFT COLUMN: CONTROLS & ALGORITHMS -->
+    <div class="glass-card" style="height: 100%; display: flex; flex-direction: column;">
+      <div class="section-header">
+        <div class="section-title">
+          <span>Algoritmos de Búsqueda</span>
+        </div>
+      </div>
+
+      <!-- 1. FUERZA BRUTA CARD -->
+      <div id="card-fb" class="algorithm-card">
+        <div class="algo-header">
+          <div class="algo-title-group">
+            <div>
+              <div class="algo-name">1. Fuerza Bruta (con Poda)</div>
+              <div class="algo-desc">Búsqueda exhaustiva con backtracking y poda de trayectos subóptimos.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contador de Ciudades (- / +) -->
+        <div class="stepper-control">
+          <span class="stepper-label">Ciudades a evaluar:</span>
+          <div class="stepper-group">
+            <button id="btn-cities-dec" type="button" class="stepper-btn" title="Disminuir ciudades">−</button>
+            <input type="number" id="cities-counter-input" class="stepper-input" min="2" max="20" value="10" readonly />
+            <button id="btn-cities-inc" type="button" class="stepper-btn" title="Aumentar ciudades">+</button>
+          </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-run-fb" class="btn btn-primary" style="flex: 1;">
+            Ejecutar Fuerza Bruta
+          </button>
+          <button id="btn-stop-fb" class="btn btn-danger" style="display: none;">
+            <span>⏹</span> Detener
+          </button>
+        </div>
+
+        <!-- Live Progress Box (Hidden by default) -->
+        <div id="fb-progress-box" class="live-progress-box" style="display: none;">
+          <div class="progress-header">
+            <span style="color: var(--primary);">Búsqueda en curso...</span>
+            <span id="fb-live-cost" style="color: #34d399; font-weight: 700;">Mejor: --</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="fb-progress-bar-fill" class="progress-bar-fill"></div>
+          </div>
+          <div class="progress-stats-row">
+            <span id="fb-live-nodes">Nodos: 0</span>
+            <span id="fb-live-eta">Tiempo restante: Calculando...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. VORAZ (GREEDY) CARD -->
+      <div id="card-voraz" class="algorithm-card">
+        <div class="algo-header">
+          <div class="algo-title-group">
+            <div>
+              <div class="algo-name">2. Algoritmo Voraz (Greedy)</div>
+              <div class="algo-desc">Heurística del vecino más cercano acelerada por hardware.</div>
+            </div>
+          </div>
+        </div>
+
+        <button id="btn-run-voraz" class="btn btn-secondary" style="width: 100%;">
+          Ejecutar Algoritmo Voraz
+        </button>
+      </div>
+
+      <!-- 3. GENÉTICO CARD -->
+      <div id="card-genetico" class="algorithm-card">
+        <div class="algo-header">
+          <div class="algo-title-group">
+            <div>
+              <div class="algo-name">3. Algoritmos Genéticos</div>
+              <div class="algo-desc">Selección natural, cruce OX y mutación ejecutados de forma tradicional.</div>
+            </div>
+          </div>
+        </div>
+
+        <button id="btn-run-gen" class="btn btn-secondary" style="width: 100%;">
+          Ejecutar Algoritmo Genético
+        </button>
+      </div>
+
+      <!-- Fila de Widgets: Archivo Activo y Widget Cargar Excel alineados al fondo (piso) -->
+      <div style="display: flex; align-items: stretch; gap: 10px; margin-top: auto;">
+        <div class="file-bar" style="flex: 1;">
+          <div class="file-info">
+            <span>📄</span>
+            <div>
+              <div id="stat-filename" class="file-name">CIUDADES_gasolina.xlsx</div>
+              <div style="font-size: 11px; color: var(--text-muted);">Matriz de distancias cargada</div>
+            </div>
+          </div>
+        </div>
+
+        <label class="btn btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; cursor: pointer; white-space: nowrap; font-size: 12.5px; font-weight: 600;">
+          <span>📁</span>
+          <span>Cargar Excel</span>
+          <input type="file" id="excel-file-input" accept=".xlsx,.xls" style="display: none;" />
+        </label>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: MAP VISUALIZER (EXPANDIDO) & RESULTS (COMPACTO) -->
+    <div style="display: flex; flex-direction: column; gap: 14px; height: 100%; min-height: 0;">
+      <!-- MAP CANVAS CARD (GRANDE Y EXPANDIDO) -->
+      <div class="glass-card map-card-expanded">
+        <div class="section-header">
+          <div class="section-title">
+            <span>🗺️ Visualización de la Ruta Óptima</span>
+          </div>
+          <span style="font-size: 11.5px; color: var(--text-muted);">Nodo 1: Origen / Retorno (Verde)</span>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="map-canvas"></canvas>
+          <div class="canvas-overlay-badge">
+            <span style="color: #10b981;">●</span>
+            <span id="canvas-status-text">Grafo listo</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULTS CARD (COMPACTO ABAJO) -->
+      <div class="glass-card results-compact">
+        <div class="section-header">
+          <div class="section-title">
+            <span>Resultados de la Solución</span>
+          </div>
+        </div>
+
+        <!-- KPI Cards Compactas -->
+        <div class="results-grid">
+          <div class="stat-card">
+            <div class="stat-card-title">
+              <span>💰</span> Costo Total
+            </div>
+            <div id="stat-cost-val" class="stat-card-value" style="color: #38bdf8;">--</div>
+            <div id="stat-cost-desc" class="stat-card-subtitle">Distancia total</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-title">
+              <span>🔢</span> Combinaciones
+            </div>
+            <div id="stat-comb-val" class="stat-card-value" style="color: #f59e0b;">--</div>
+            <div id="stat-comb-desc" class="stat-card-subtitle">Espacio evaluado</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-title">
+              <span>⏱️</span> Tiempo Requerido
+            </div>
+            <div id="stat-time-val" class="stat-card-value" style="font-size: 16px; color: #34d399;">--:--:--</div>
+            <div id="stat-time-detail" class="stat-card-subtitle">Esperando ejecución...</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-title">
+               Algoritmo Utilizado
+            </div>
+            <div id="stat-algo-val" class="stat-card-value" style="font-size: 15px; color: #a78bfa;">--</div>
+            <div id="stat-algo-desc" class="stat-card-subtitle">Esperando ejecución...</div>
+          </div>
+        </div>
+
+        <!-- Route Tags Box Compacto -->
+        <div class="route-box">
+          <div class="route-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Ruta Seleccionada:</span>
+            <button id="btn-copy-route" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;">📋 Copiar Ruta</button>
+          </div>
+          <div id="route-tags-container" class="route-tags-flow">
+            <span style="color: var(--text-muted); font-size: 12px;">Ejecute cualquiera de los métodos para visualizar la secuencia de ciudades.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
